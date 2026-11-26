@@ -744,31 +744,19 @@ export default function TableViewClient({
         : undefined;
 
     if (Array.isArray(savedWidgets) && savedWidgets.length > 0) {
-      return savedWidgets;
+      // Ignorovat dříve automaticky vkládané demo widgety "NOVÉ" a "ODESLÁNO"
+      const userWidgets = savedWidgets.filter(
+        (w) => w.id !== "widget-nove" && w.id !== "widget-odeslano"
+      );
+      return userWidgets;
     }
 
-    return [
-      {
-        id: "widget-nove",
-        title: "NOVÉ",
-        aggregation: "COUNT",
-        filterColumnKey: "stav",
-        filterValue: "Nové",
-        color: "#1e60f0",
-      },
-      {
-        id: "widget-odeslano",
-        title: "ODESLÁNO",
-        aggregation: "COUNT",
-        filterColumnKey: "stav",
-        filterValue: "Odesláno",
-        color: "#00c0f3",
-      },
-    ];
+    // Výchozí stav: žádné widgety
+    return [];
   }, [table.views]);
 
   const [widgets, setWidgets] = useState<MetricWidget[]>(initialWidgets);
-  const [isWidgetsCollapsed, setIsWidgetsCollapsed] = useState(false);
+  const [isWidgetsCollapsed, setIsWidgetsCollapsed] = useState(true);
   const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false);
   const [editingWidget, setEditingWidget] = useState<MetricWidget | null>(null);
@@ -791,6 +779,7 @@ export default function TableViewClient({
     const updated = exists
       ? widgets.map((w) => (w.id === savedWidget.id ? savedWidget : w))
       : [...widgets, savedWidget];
+    setIsWidgetsCollapsed(false);
     saveWidgetsToBackend(updated);
   };
   const handleDeleteWidget = (widgetId: string) => {
