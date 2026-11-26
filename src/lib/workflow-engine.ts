@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { sendEmail, SmtpConfig } from "@/lib/email-service";
 
 export type TriggerType = "ON_CREATE" | "ON_FIELD_CHANGE" | "ON_UPDATE" | "MANUAL_BUTTON";
 
@@ -40,6 +41,7 @@ export interface EmailActionConfig {
   to: string;
   subject: string;
   body: string;
+  attachmentFieldKey?: string; // Klíč sloupce s přílohami / URL (např. fld_files nebo fld_invoice)
 }
 
 export interface UpdateFieldActionConfig {
@@ -214,11 +216,12 @@ export async function executeAction(
     recordData: Record<string, unknown>;
     tableId: string;
     tableName: string;
-    columns: Array<{ key: string; label: string }>;
+    columns: Array<{ key: string; label: string; type?: string }>;
     visitedAutomationIds?: Set<string>;
+    smtpConfig?: SmtpConfig;
   }
 ): Promise<{ status: "SUCCESS" | "FAILED"; message: string; details: unknown }> {
-  const { recordId, recordData, tableId, tableName, columns, visitedAutomationIds } = context;
+  const { recordId, recordData, tableId, tableName, columns, visitedAutomationIds, smtpConfig } = context;
 
   try {
     if (action.type === "WEBHOOK") {
@@ -275,40 +278,65 @@ export async function executeAction(
       const subject = replaceTemplateVariables(config.subject || "Notifikace z Foxly", recordData, columns);
       const body = replaceTemplateVariables(config.body || "Záznam byl aktualizován.", recordData, columns);
 
-      // Pokusíme se odeslat přes lokální Mailpit API (běží na portu 8026)
-      try {
-        const mailRes = await fetch("http://localhost:8026/api/v1/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            From: { Email: "automations@foxly.local", Name: "Foxly Workflow Automatizace" },
-            To: [{ Email: to }],
-            Subject: subject,
-            Text: body,
-            HTML: `<div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
-              <h2 style="color: #ea580c; margin-top: 0;">${subject}</h2>
-              <div style="background: #fff7ed; border-left: 4px solid #ea580c; padding: 15px; margin: 15px 0; white-space: pre-wrap;">${body}</div>
-              <p style="color: #64748b; font-size: 12px; margin-top: 20px;">Automaticky vygenerováno systémem Foxly pro tabulku <strong>${tableName}</strong>.</p>
-            </div>`,
-          }),
-        });
+      // Přílohy ze sloupce (např. nahraný soubor, PDF, obrázek nebo URL)
+      const attachments: Array<{ filename: string; path?: string; content?: string }> = [];
+      if (config.attachmentFieldKey && recordData[config.attachmentFieldKey]) {
+        const rawAttachment = recordData[config.attachmentFieldKey];
+        const colDef = columns.find((c) => c.key === config.attachmentFieldKey);
+        const colName = colDef?.label || "priloha";
 
-        if (mailRes.ok) {
-          const resJson = await mailRes.json().catch(() => ({}));
-          return {
-            status: "SUCCESS",
-            message: `E-mail "${subject}" odeslán příjemci ${to} (Mailpit ID: ${resJson.ID || "ok"})`,
-            details: { to, subject, bodyPreview: body.slice(0, 200), mailpitId: resJson.ID },
-          };
+        if (typeof rawAttachment === "string" && rawAttachment.trim()) {
+          const urlOrPath = rawAttachment.trim();
+          let filename = `${colName}`;
+          try {
+            const urlParts = new URL(urlOrPath, "http://localhost");
+            const pathname = urlParts.pathname;
+            const extractedName = pathname.substring(pathname.lastIndexOf("/") + 1);
+            if (extractedName && extractedName.includes(".")) {
+              filename = extractedName;
+            } else {
+              filename = `${colName}.pdf`;
+            }
+          } catch {
+            filename = `${colName}.pdf`;
+          }
+
+          attachments.push({
+            filename,
+            path: urlOrPath,
+          });
         }
-      } catch {
-        // Fallback pro případ, kdy Mailpit není dostupný
+      }
+
+      // Odeslání přes email-service (Nodemailer SMTP nebo Mailpit fallback)
+      const emailRes = await sendEmail({
+        smtpConfig,
+        to,
+        subject,
+        text: body,
+        html: `<div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #1e60f0; margin-top: 0;">${subject}</h2>
+          <div style="background: #f8fafc; border-left: 4px solid #1e60f0; padding: 15px; margin: 15px 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${body}</div>
+          ${attachments.length > 0 ? `<p style="font-size: 12px; color: #64748b;">📎 Přiložen soubor: <strong>${attachments[0].filename}</strong></p>` : ""}
+          <p style="color: #94a3b8; font-size: 11px; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+            Automaticky vygenerováno systémem Foxly pro tabulku <strong>${tableName}</strong>.
+          </p>
+        </div>`,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+
+      if (!emailRes.success) {
+        return {
+          status: "FAILED",
+          message: `Odeslání e-mailu selhalo: ${emailRes.error || "Neznámá chyba"}`,
+          details: { to, subject, error: emailRes.error },
+        };
       }
 
       return {
         status: "SUCCESS",
-        message: `E-mailová notifikace pro ${to} byla zaznamenána do fronty`,
-        details: { to, subject, bodyPreview: body.slice(0, 200) },
+        message: `E-mail "${subject}" odeslán příjemci ${to}${attachments.length > 0 ? ` (příloha: ${attachments[0].filename})` : ""}`,
+        details: { to, subject, messageId: emailRes.messageId, attachmentsCount: attachments.length },
       };
     }
 
@@ -402,6 +430,11 @@ export async function triggerAutomationsForEvent(params: {
     const table = await db.table.findUnique({
       where: { id: tableId },
       include: {
+        app: {
+          include: {
+            workspace: true,
+          },
+        },
         columns: { orderBy: { sortOrder: "asc" } },
         automations: { where: { isActive: true } },
       },
@@ -410,6 +443,9 @@ export async function triggerAutomationsForEvent(params: {
     if (!table || table.automations.length === 0) {
       return [];
     }
+
+    const companyDetails = (table.app?.workspace?.companyDetails as Record<string, any>) || {};
+    const smtpConfig = companyDetails.smtp as SmtpConfig | undefined;
 
     const results = [];
 
@@ -524,6 +560,7 @@ export async function triggerAutomationsForEvent(params: {
           tableName: table.name,
           columns: table.columns,
           visitedAutomationIds: nextVisited,
+          smtpConfig,
         });
 
         actionExecResults.push({ actionId: act.id, type: act.type, ...res });
@@ -571,6 +608,11 @@ export async function testAutomationRun(automationId: string, recordId: string) 
     include: {
       table: {
         include: {
+          app: {
+            include: {
+              workspace: true,
+            },
+          },
           columns: { orderBy: { sortOrder: "asc" } },
         },
       },
@@ -580,6 +622,9 @@ export async function testAutomationRun(automationId: string, recordId: string) 
   if (!automation) {
     throw new Error("Automatizace nenalezena");
   }
+
+  const companyDetails = (automation.table.app?.workspace?.companyDetails as Record<string, any>) || {};
+  const smtpConfig = companyDetails.smtp as SmtpConfig | undefined;
 
   const record = await db.record.findUnique({
     where: { id: recordId },
@@ -627,6 +672,7 @@ export async function testAutomationRun(automationId: string, recordId: string) 
         tableId: automation.table.id,
         tableName: automation.table.name,
         columns,
+        smtpConfig,
       });
       actionExecResults.push({ actionId: act.id, type: act.type, ...res });
       if (res.status === "FAILED") allActionsSuccess = false;

@@ -34,6 +34,7 @@ import {
   Trash2,
   Terminal,
   Plus,
+  Send,
 } from "lucide-react";
 import { ANIMATED_AVATAR_PRESETS, getRandomAnimatedAvatar } from "@/lib/avatars";
 import { useDialog } from "@/components/ui/dialog-provider";
@@ -126,7 +127,7 @@ export default function WorkspaceSettingsClient({
 }) {
   const router = useRouter();
   const { alert, confirm } = useDialog();
-  const [activeTab, setActiveTab] = useState<"company" | "plugins" | "backup" | "profile" | "api">("company");
+  const [activeTab, setActiveTab] = useState<"company" | "plugins" | "backup" | "profile" | "smtp" | "api">("company");
 
   // API & AI Integrace
   const [apiKeys, setApiKeys] = useState<Array<{
@@ -238,6 +239,18 @@ export default function WorkspaceSettingsClient({
   const [email, setEmail] = useState(initialDetails.email || "");
   const [phone, setPhone] = useState(initialDetails.phone || "");
   const [web, setWeb] = useState(initialDetails.web || "");
+
+  // SMTP Nastavení pro automatizace
+  const initialSmtp = (initialDetails.smtp || {}) as Record<string, any>;
+  const [smtpHost, setSmtpHost] = useState<string>(initialSmtp.host || "");
+  const [smtpPort, setSmtpPort] = useState<string | number>(initialSmtp.port || 587);
+  const [smtpSecure, setSmtpSecure] = useState<boolean>(initialSmtp.secure || false);
+  const [smtpUser, setSmtpUser] = useState<string>(initialSmtp.user || "");
+  const [smtpPass, setSmtpPass] = useState<string>(initialSmtp.pass || "");
+  const [smtpFromEmail, setSmtpFromEmail] = useState<string>(initialSmtp.fromEmail || "");
+  const [smtpFromName, setSmtpFromName] = useState<string>(initialSmtp.fromName || "");
+  const [testEmailRecipient, setTestEmailRecipient] = useState<string>("");
+  const [testingSmtp, setTestingSmtp] = useState<boolean>(false);
 
   // Můj profil & Zabezpečení
   const [profileName, setProfileName] = useState(currentUser?.name || "");
@@ -372,6 +385,15 @@ export default function WorkspaceSettingsClient({
             email,
             phone,
             web,
+            smtp: {
+              host: smtpHost,
+              port: Number(smtpPort) || 587,
+              secure: smtpSecure,
+              user: smtpUser,
+              pass: smtpPass,
+              fromEmail: smtpFromEmail,
+              fromName: smtpFromName,
+            },
           },
           plugins: enabledPlugins,
         }),
@@ -396,6 +418,49 @@ export default function WorkspaceSettingsClient({
     setDownloadingBackup(true);
     window.location.href = `/api/workspaces/${workspace.slug}/backup`;
     setTimeout(() => setDownloadingBackup(false), 2000);
+  };
+
+  const handleTestSmtp = async () => {
+    if (!testEmailRecipient || !testEmailRecipient.includes("@")) {
+      await alert("Zadejte platnou e-mailovou adresu příjemce testu.");
+      return;
+    }
+    if (!smtpHost) {
+      await alert("Vyplňte SMTP Host serveru.");
+      return;
+    }
+
+    setTestingSmtp(true);
+    try {
+      const res = await fetch(`/api/workspaces/${workspace.slug}/settings/test-smtp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          testEmail: testEmailRecipient,
+          smtpConfig: {
+            host: smtpHost,
+            port: Number(smtpPort) || 587,
+            secure: smtpSecure,
+            user: smtpUser,
+            pass: smtpPass,
+            fromEmail: smtpFromEmail,
+            fromName: smtpFromName,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        await alert(data.message || "Testovací e-mail byl úspěšně odeslán!");
+      } else {
+        await alert(data.error || "Chyba při odesílání testovacího e-mailu.");
+      }
+    } catch (e) {
+      console.error(e);
+      await alert("Nastala chyba při volání testu SMTP.");
+    } finally {
+      setTestingSmtp(false);
+    }
   };
 
   const totalTables = workspace.apps.reduce((sum, a) => sum + a.tables.length, 0);
@@ -499,6 +564,22 @@ export default function WorkspaceSettingsClient({
         >
           <User className="w-4 h-4" />
           <span>Můj profil & Zabezpečení</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("smtp")}
+          className={`py-3.5 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
+            activeTab === "smtp"
+              ? "border-blue-600 text-blue-600 font-bold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          <span>E-mail & SMTP</span>
+          {smtpHost && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500" title="SMTP nakonfigurováno" />
+          )}
         </button>
 
         <button
@@ -1192,6 +1273,171 @@ export default function WorkspaceSettingsClient({
               </button>
             </div>
           </form>
+        )}
+
+        {/* ZÁLOŽKA: E-MAIL & VLASTNÍ SMTP */}
+        {activeTab === "smtp" && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-2xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-blue-600" />
+                    <span>Konfigurace vlastního SMTP serveru</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                    Nastavte firemní odchozí poštovní server pro automatizované odesílání e-mailů a notifikací (včetně PDF a souborů z tabulek) ve workflow pravidlech.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pt-2">
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    SMTP Host server *
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="např. smtp.gmail.com, smtp.seznam.cz nebo mail.firma.cz"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Port *
+                  </label>
+                  <input
+                    type="number"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(e.target.value)}
+                    placeholder="587 nebo 465"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Přihlašovací jméno / Uživatel (Username)
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    placeholder="info@firma.cz"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Heslo k SMTP (Password / App Password)
+                  </label>
+                  <input
+                    type="password"
+                    value={smtpPass}
+                    onChange={(e) => setSmtpPass(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    E-mail odesílatele (From Email)
+                  </label>
+                  <input
+                    type="email"
+                    value={smtpFromEmail}
+                    onChange={(e) => setSmtpFromEmail(e.target.value)}
+                    placeholder="notifikace@firma.cz"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Jméno odesílatele (From Name)
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpFromName}
+                    onChange={(e) => setSmtpFromName(e.target.value)}
+                    placeholder="Firma s.r.o. Notifikace"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={smtpSecure}
+                    onChange={(e) => setSmtpSecure(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Použít přímé SSL šifrování (zaškrtněte pro port 465; pro port 587 STARTTLS nechte nezaškrtnuté)</span>
+                </label>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500">
+                  Pokud nevyplníte externí SMTP, systém využije lokální frontu nebo Mailpit.
+                </span>
+
+                <button
+                  type="button"
+                  onClick={(e) => handleSaveSettings(e as any)}
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>{savedSuccess ? "Uloženo!" : "Uložit nastavení SMTP"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Testovací odeslání */}
+            <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-emerald-600" />
+                <span>Otestovat odeslání e-mailu</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Odešlete zkušební zprávu na svůj e-mail pro ověření správného spojení se serverem.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-1 text-xs">
+                <input
+                  type="email"
+                  value={testEmailRecipient}
+                  onChange={(e) => setTestEmailRecipient(e.target.value)}
+                  placeholder="Váš e-mail (např. jmeno@firma.cz)"
+                  className="w-full sm:max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestSmtp}
+                  disabled={testingSmtp || !smtpHost}
+                  className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40"
+                >
+                  {testingSmtp ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Odeslat testovací e-mail</span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 5. ZÁLOŽKA: VEŘEJNÉ API & AI INTEGRACE */}
