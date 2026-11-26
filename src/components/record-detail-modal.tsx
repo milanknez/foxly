@@ -21,9 +21,12 @@ import {
   Clock,
   User,
   Image as ImageIcon,
+  FileText,
+  Paperclip,
+  Download,
+  Eye,
   Globe,
   Upload,
-  Eye,
 } from "lucide-react";
 import SelectBadge, { SelectOption } from "./select-badge";
 import DateCell from "./date-cell";
@@ -138,8 +141,9 @@ export default function RecordDetailModal({
         return <Calendar className="w-3.5 h-3.5 text-purple-500" />;
       case "CHECKBOX":
         return <CheckSquare className="w-3.5 h-3.5 text-teal-500" />;
-      case "IMAGE":
       case "FILE":
+        return <Paperclip className="w-3.5 h-3.5 text-blue-500" />;
+      case "IMAGE":
         return <ImageIcon className="w-3.5 h-3.5 text-pink-500" />;
       case "URL":
         return <Globe className="w-3.5 h-3.5 text-cyan-500" />;
@@ -365,7 +369,86 @@ export default function RecordDetailModal({
                           </span>
                         )}
                       </div>
-                    ) : col.type === "IMAGE" || col.type === "FILE" ? (
+                    ) : col.type === "FILE" ? (
+                      <div className="space-y-2">
+                        {val ? (
+                          <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                                <FileText className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-800 truncate" title={String(val)}>
+                                  {(() => {
+                                    const str = String(val);
+                                    if (str.startsWith("data:")) return "Nahraný soubor (Base64)";
+                                    try {
+                                      const u = new URL(str, "http://localhost");
+                                      const p = u.pathname.substring(u.pathname.lastIndexOf("/") + 1);
+                                      return p || str;
+                                    } catch {
+                                      return str;
+                                    }
+                                  })()}
+                                </div>
+                                <div className="text-[10px] text-slate-400 truncate max-w-xs">
+                                  {String(val).startsWith("data:") ? "Příloha uložena" : String(val)}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <a
+                                href={String(val)}
+                                target="_blank"
+                                rel="noreferrer"
+                                download
+                                className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200 flex items-center gap-1 transition-colors"
+                                title="Otevřít / stáhnout soubor"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Otevřít</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleFieldChange(col.key, "")}
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                                title="Smazat soubor"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={val !== undefined && val !== null && !String(val).startsWith("data:") ? String(val) : ""}
+                            onChange={(e) => handleFieldChange(col.key, e.target.value)}
+                            placeholder="Vložte URL souboru (https://...)"
+                            className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e60f0]/30 focus:border-[#1e60f0]"
+                          />
+                          <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer border border-slate-200 flex items-center gap-1 shrink-0 transition-colors">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{val ? "Změnit" : "Nahrát"}</span>
+                            <input
+                              type="file"
+                              accept="*/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  const r = new FileReader();
+                                  r.onload = () => handleFieldChange(col.key, r.result);
+                                  r.readAsDataURL(f);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : col.type === "IMAGE" ? (
                       <div className="space-y-2">
                         {val ? (
                           <div className="relative inline-block border border-slate-200 rounded-xl overflow-hidden bg-slate-50 group">
@@ -374,28 +457,39 @@ export default function RecordDetailModal({
                               alt={col.label}
                               className="max-h-48 max-w-full object-contain rounded-lg"
                             />
-                            <button
-                              type="button"
-                              onClick={() => handleFieldChange(col.key, "")}
-                              className="absolute top-1.5 right-1.5 p-1 bg-red-600/80 hover:bg-red-600 text-white rounded-md shadow-xs transition-colors cursor-pointer"
-                              title="Odstranit obrázek"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                              <a
+                                href={String(val)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1 bg-black/60 hover:bg-black/80 text-white rounded-md shadow-xs transition-colors"
+                                title="Otevřít obrázek"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleFieldChange(col.key, "")}
+                                className="p-1 bg-red-600/80 hover:bg-red-600 text-white rounded-md shadow-xs transition-colors cursor-pointer"
+                                title="Odstranit obrázek"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ) : null}
 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={val !== undefined && val !== null ? String(val) : ""}
+                            value={val !== undefined && val !== null && !String(val).startsWith("data:") ? String(val) : ""}
                             onChange={(e) => handleFieldChange(col.key, e.target.value)}
                             placeholder="Vložte URL obrázku (https://...)"
                             className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e60f0]/30 focus:border-[#1e60f0]"
                           />
                           <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer border border-slate-200 flex items-center gap-1 shrink-0 transition-colors">
                             <Upload className="w-3.5 h-3.5" />
-                            <span>Nahrát</span>
+                            <span>{val ? "Změnit" : "Nahrát"}</span>
                             <input
                               type="file"
                               accept="image/*"

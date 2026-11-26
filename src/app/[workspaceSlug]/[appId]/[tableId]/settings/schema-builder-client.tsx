@@ -24,6 +24,8 @@ import {
   ListFilter,
   AlignLeft,
   Image as ImageIcon,
+  FileText,
+  Paperclip,
   Globe,
   Link2,
   Code2,
@@ -671,6 +673,7 @@ export default function SchemaBuilderClient({
                     { val: "DATE", lbl: "Datum", icon: Calendar },
                     { val: "SELECT", lbl: "Výběr (Dropdown)", icon: ListFilter },
                     { val: "CHECKBOX", lbl: "Přepínač (Ano/Ne)", icon: CheckSquare },
+                    { val: "FILE", lbl: "Soubor / Dokument (PDF, atd.)", icon: Paperclip },
                     { val: "IMAGE", lbl: "Obrázek (Miniatura)", icon: ImageIcon },
                     { val: "URL", lbl: "Webový odkaz (URL)", icon: Globe },
                   ].map((item) => {

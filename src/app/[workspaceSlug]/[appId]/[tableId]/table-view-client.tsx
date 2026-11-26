@@ -28,6 +28,7 @@ import {
   Search,
   ScanText,
   FileText,
+  Paperclip,
   Sparkles,
   ChevronDown,
   ChevronUp,
@@ -3182,7 +3183,37 @@ export default function TableViewClient({
                                     badgeDisplayType={badgeDisplayType}
                                     onChange={(newVal) => handleCellChange(record.id, col.key, newVal)}
                                   />
-                                ) : col.type === "IMAGE" || col.type === "FILE" ? (
+                                ) : col.type === "FILE" ? (
+                                  val ? (
+                                    <div className="flex items-center">
+                                      <a
+                                        href={String(val)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-medium transition-colors max-w-[180px] truncate"
+                                        title={String(val)}
+                                      >
+                                        <Paperclip className="w-3 h-3 shrink-0" />
+                                        <span className="truncate">
+                                          {(() => {
+                                            const s = String(val);
+                                            if (s.startsWith("data:")) return "Soubor";
+                                            try {
+                                              const u = new URL(s, "http://localhost");
+                                              const p = u.pathname.substring(u.pathname.lastIndexOf("/") + 1);
+                                              return p || s;
+                                            } catch {
+                                              return s;
+                                            }
+                                          })()}
+                                        </span>
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-300 italic">—</span>
+                                  )
+                                ) : col.type === "IMAGE" ? (
                                   val ? (
                                     <div className="flex items-center">
                                       <img
@@ -3800,6 +3831,9 @@ export default function TableViewClient({
                     <option value="CURRENCY">Měna (Kč / €)</option>
                     <option value="DATE">Datum</option>
                     <option value="CHECKBOX">Přepínač (Ano / Ne)</option>
+                    <option value="FILE">Soubor / Dokument (PDF, atd.)</option>
+                    <option value="IMAGE">Obrázek</option>
+                    <option value="URL">Webový odkaz (URL)</option>
                   </select>
                 </div>
 
