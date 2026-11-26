@@ -4496,7 +4496,7 @@ export default function TableViewClient({
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
               >
                 <Key className="w-3.5 h-3.5" />
-                <span>Spravovat & vytvořit API klíče v Nastavení</span>
+                <span>Spravovat a vytvořit API klíče v Nastavení</span>
               </Link>
 
               <button

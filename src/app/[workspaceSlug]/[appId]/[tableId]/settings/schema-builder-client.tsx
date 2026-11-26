@@ -435,7 +435,7 @@ export default function SchemaBuilderClient({
                 title="Přejmenovat tabulku nebo změnit její ikonu"
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>Přejmenovat & Ikona</span>
+                <span>Přejmenovat a ikona</span>
               </button>
             </div>
             <p className="text-[11px] text-slate-500">

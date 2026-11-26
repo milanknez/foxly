@@ -192,7 +192,7 @@ export default function UserProfileModal({
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>Osobní údaje & Avatar</span>
+            <span>Osobní údaje a avatar</span>
           </button>
 
           <button

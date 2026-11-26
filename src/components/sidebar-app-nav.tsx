@@ -488,7 +488,7 @@ export default function SidebarAppNav({
               }`}
           >
             <Users className="w-3.5 h-3.5 text-purple-400" />
-            <span>Zaměstnanci & Práva</span>
+            <span>Zaměstnanci a práva</span>
           </Link>
 
           <Link
@@ -500,7 +500,7 @@ export default function SidebarAppNav({
               }`}
           >
             <Building2 className="w-3.5 h-3.5 text-blue-400" />
-            <span>Nastavení firmy & Pluginy</span>
+            <span>Nastavení firmy a pluginy</span>
           </Link>
         </div>
       </div>

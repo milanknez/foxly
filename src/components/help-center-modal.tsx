@@ -383,7 +383,7 @@ export default function HelpCenterModal({
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span>Centrum nápovědy & Průvodce systémem</span>
+                <span>Centrum nápovědy a průvodce systémem</span>
                 <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                   Dokumentace
                 </span>

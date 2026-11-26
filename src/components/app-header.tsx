@@ -329,7 +329,7 @@ export default function AppHeader({
                     className="w-full flex items-center gap-2 px-4 py-2 text-blue-700 font-semibold bg-blue-50/70 hover:bg-blue-100 transition-colors text-left cursor-pointer"
                   >
                     <User className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Můj profil & Změna hesla</span>
+                    <span>Můj profil a heslo</span>
                   </button>
 
                   <Link
@@ -339,7 +339,7 @@ export default function AppHeader({
                     className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                   >
                     <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Nastavení firmy & Logo</span>
+                    <span>Nastavení firmy a logo</span>
                   </Link>
 
                   <Link
@@ -349,7 +349,7 @@ export default function AppHeader({
                     className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                   >
                     <Puzzle className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Pluginy & Rozšíření</span>
+                    <span>Pluginy a rozšíření</span>
                   </Link>
 
                   <Link
@@ -359,7 +359,7 @@ export default function AppHeader({
                     className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                   >
                     <Users className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Zaměstnanci & Oprávnění</span>
+                    <span>Zaměstnanci a oprávnění</span>
                   </Link>
 
                   <Link

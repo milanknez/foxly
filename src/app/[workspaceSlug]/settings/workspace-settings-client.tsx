@@ -484,7 +484,7 @@ export default function WorkspaceSettingsClient({
           <div>
             <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-blue-600" />
-              <span>Nastavení firmy & Rozšíření</span>
+              <span>Nastavení firmy a rozšíření</span>
             </h1>
             <p className="text-xs text-slate-500">
               Správa profilu firmy, vlastního loga, aktivních pluginů a záloh
@@ -534,7 +534,7 @@ export default function WorkspaceSettingsClient({
           }`}
         >
           <Puzzle className="w-4 h-4" />
-          <span>Pluginy & Rozšíření</span>
+          <span>Pluginy a rozšíření</span>
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-blue-700 font-bold">
             {enabledPlugins.length}
           </span>
@@ -563,7 +563,7 @@ export default function WorkspaceSettingsClient({
           }`}
         >
           <User className="w-4 h-4" />
-          <span>Můj profil & Zabezpečení</span>
+          <span>Můj profil a zabezpečení</span>
         </button>
 
         <button
@@ -576,7 +576,7 @@ export default function WorkspaceSettingsClient({
           }`}
         >
           <Mail className="w-4 h-4" />
-          <span>E-mail & SMTP</span>
+          <span>E-mail a SMTP</span>
           {smtpHost && (
             <span className="w-2 h-2 rounded-full bg-emerald-500" title="SMTP nakonfigurováno" />
           )}
@@ -592,7 +592,7 @@ export default function WorkspaceSettingsClient({
           }`}
         >
           <Key className="w-4 h-4" />
-          <span>Veřejné API & AI Integrace</span>
+          <span>Veřejné API a AI integrace</span>
           {apiKeys.length > 0 && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-bold">
               {apiKeys.length}
@@ -1269,7 +1269,7 @@ export default function WorkspaceSettingsClient({
                 ) : (
                   <Save className="w-3.5 h-3.5" />
                 )}
-                <span>Uložit můj profil & heslo</span>
+                <span>Uložit můj profil a heslo</span>
               </button>
             </div>
           </form>
