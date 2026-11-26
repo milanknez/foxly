@@ -1,22 +1,30 @@
 FROM node:20-alpine AS base
 
-# 1. Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
-RUN npm ci || npm install
+RUN npm ci
 
-# 2. Development image
-FROM base AS dev
+FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx prisma generate
+RUN npm run build
 
-EXPOSE 3005
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
 ENV PORT=3005
 ENV HOSTNAME="0.0.0.0"
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
 
-CMD ["npm", "run", "dev"]
+EXPOSE 3005
+CMD ["npm", "run", "start"]
