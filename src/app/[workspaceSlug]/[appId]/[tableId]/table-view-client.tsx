@@ -2062,111 +2062,6 @@ export default function TableViewClient({
       <div className="px-6 py-2 flex flex-wrap items-center justify-between gap-3 shrink-0">
         {/* Levá skupina tlačítek akcí */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* PŘEPÍNAČ ULOŽENÝCH POHLEDŮ (VIEWS SWITCHER) */}
-          <div className="relative z-40">
-            <button
-              type="button"
-              onClick={() => {
-                setShowViewsDropdown(!showViewsDropdown);
-                setShowExportDropdown(false);
-                setShowImportDropdown(false);
-                setShowColumnVisibilityDropdown(false);
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 shadow-sm transition-colors cursor-pointer"
-              title="Přepnout nebo uložit nastavení zobrazení tabulky"
-            >
-              <Bookmark className="w-3.5 h-3.5 text-[#1e60f0]" />
-              <span className="max-w-[130px] truncate">{activeViewObj?.name || "Výchozí zobrazení"}</span>
-              {activeViewObj?.isDefault && (
-                <span className="text-[11px] text-amber-500 font-bold" title="Výchozí pohled">★</span>
-              )}
-              <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
-            </button>
-
-            {showViewsDropdown && (
-              <div className="absolute left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in space-y-1">
-                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                  <span>Pohledy tabulky</span>
-                  <span className="text-slate-400">{tableViews.length}</span>
-                </div>
-
-                <div className="max-h-56 overflow-y-auto space-y-0.5 px-1">
-                  {tableViews.map((v) => {
-                    const isActive = v.id === activeViewId;
-                    return (
-                      <div
-                        key={v.id}
-                        onClick={() => {
-                          applyView(v);
-                          setShowViewsDropdown(false);
-                        }}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
-                          isActive
-                            ? "bg-blue-50 text-[#1e60f0] font-semibold"
-                            : "hover:bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                          {isActive ? (
-                            <Check className="w-3.5 h-3.5 text-[#1e60f0] shrink-0" />
-                          ) : (
-                            <div className="w-3.5 h-3.5 shrink-0" />
-                          )}
-                          <span className="truncate">{v.name}</span>
-                          {v.isDefault && (
-                            <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.2 rounded font-bold shrink-0">
-                              Výchozí
-                            </span>
-                          )}
-                        </div>
-
-                        {v.id !== "default-grid-view" && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteView(v.id, e)}
-                            title="Smazat pohled"
-                            className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors ml-1 shrink-0"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="border-t border-slate-100 my-1" />
-
-                <div className="px-1 space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={handleQuickSaveCurrentView}
-                    className="w-full text-left px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Save className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Uložit změny v pohledu</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSaveViewName("");
-                      setSaveViewIsDefault(false);
-                      setShowSaveViewModal(true);
-                      setShowViewsDropdown(false);
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 text-xs text-[#1e60f0] hover:bg-blue-50 rounded-lg font-semibold flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-[#1e60f0]" />
-                    <span>Uložit jako nový pohled...</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="h-5 w-px bg-slate-200 mx-1 hidden sm:block" />
-
           {/* Tlačítko Přidat řádek (modrý čtverec) */}
           {userPermissions.canCreate && (
             <button
@@ -2336,6 +2231,111 @@ export default function TableViewClient({
               <Code2 className="w-3.5 h-3.5" />
             </button>
           )}
+
+          <div className="h-5 w-px bg-slate-200 mx-1 hidden sm:block" />
+
+          {/* PŘEPÍNAČ ULOŽENÝCH POHLEDŮ (VIEWS SWITCHER) */}
+          <div className="relative z-40">
+            <button
+              type="button"
+              onClick={() => {
+                setShowViewsDropdown(!showViewsDropdown);
+                setShowExportDropdown(false);
+                setShowImportDropdown(false);
+                setShowColumnVisibilityDropdown(false);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 shadow-sm transition-colors cursor-pointer"
+              title="Přepnout nebo uložit nastavení zobrazení tabulky"
+            >
+              <Bookmark className="w-3.5 h-3.5 text-[#1e60f0]" />
+              <span className="max-w-[130px] truncate">{activeViewObj?.name || "Výchozí zobrazení"}</span>
+              {activeViewObj?.isDefault && (
+                <span className="text-[11px] text-amber-500 font-bold" title="Výchozí pohled">★</span>
+              )}
+              <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
+            </button>
+
+            {showViewsDropdown && (
+              <div className="absolute left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in space-y-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>Pohledy tabulky</span>
+                  <span className="text-slate-400">{tableViews.length}</span>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto space-y-0.5 px-1">
+                  {tableViews.map((v) => {
+                    const isActive = v.id === activeViewId;
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => {
+                          applyView(v);
+                          setShowViewsDropdown(false);
+                        }}
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                          isActive
+                            ? "bg-blue-50 text-[#1e60f0] font-semibold"
+                            : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                          {isActive ? (
+                            <Check className="w-3.5 h-3.5 text-[#1e60f0] shrink-0" />
+                          ) : (
+                            <div className="w-3.5 h-3.5 shrink-0" />
+                          )}
+                          <span className="truncate">{v.name}</span>
+                          {v.isDefault && (
+                            <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.2 rounded font-bold shrink-0">
+                              Výchozí
+                            </span>
+                          )}
+                        </div>
+
+                        {v.id !== "default-grid-view" && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteView(v.id, e)}
+                            title="Smazat pohled"
+                            className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors ml-1 shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="border-t border-slate-100 my-1" />
+
+                <div className="px-1 space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={handleQuickSaveCurrentView}
+                    className="w-full text-left px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Uložit změny v pohledu</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaveViewName("");
+                      setSaveViewIsDefault(false);
+                      setShowSaveViewModal(true);
+                      setShowViewsDropdown(false);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 text-xs text-[#1e60f0] hover:bg-blue-50 rounded-lg font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#1e60f0]" />
+                    <span>Uložit jako nový pohled...</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Indikátory oprávnění */}
           {userPermissions.level === "READ_ONLY" && (
