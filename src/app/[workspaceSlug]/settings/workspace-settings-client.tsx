@@ -1498,8 +1498,10 @@ export default function WorkspaceSettingsClient({
                       const promptText = `Jsi firemní AI asistent pro workspace "${workspace.name}". 
 Máš přístup k firemnímu REST API systému Foxly:
 1. Zjištění tabulek: GET /api/v1/workspaces/${workspace.slug}/tables
-2. Čtení záznamů tabulky: GET /api/v1/tables/{tableId}/records
-3. Vytvoření záznamu: POST /api/v1/tables/{tableId}/records s JSON tělem { "data": { ... } }
+2. Vytvoření aplikace: POST /api/v1/workspaces/${workspace.slug}/apps s JSON tělem { "name": "Název aplikace" }
+3. Vytvoření tabulky: POST /api/v1/apps/{appId}/tables s JSON tělem { "name": "Název tabulky" }
+4. Čtení záznamů tabulky: GET /api/v1/tables/{tableId}/records
+5. Vytvoření záznamu: POST /api/v1/tables/{tableId}/records s JSON tělem { "data": { ... } }
 Autorizace: hlavička Authorization: Bearer <VÁŠ_API_TOKEN>`;
                       await navigator.clipboard.writeText(promptText);
                       await alert("Prompt pro AI asistenta byl zkopírován do schránky!");
@@ -1518,6 +1520,8 @@ Autorizace: hlavička Authorization: Bearer <VÁŠ_API_TOKEN>`;
                   Hlavička: Authorization: Bearer &lt;API_TOKEN&gt;<br />
                   Endpointy:<br />
                   • GET /api/v1/workspaces/{workspace.slug}/tables<br />
+                  • POST /api/v1/workspaces/{workspace.slug}/apps<br />
+                  • POST /api/v1/apps/&#123;appId&#125;/tables<br />
                   • GET /api/v1/tables/&#123;tableId&#125;/records<br />
                   • POST /api/v1/tables/&#123;tableId&#125;/records
                 </div>
