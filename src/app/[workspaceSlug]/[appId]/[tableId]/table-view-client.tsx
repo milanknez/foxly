@@ -2835,7 +2835,31 @@ export default function TableViewClient({
       </div>
 
         {/* 3. HLAVNÍ OBSAH POHLEDU (TABULKA / KANBAN / KALENDÁŘ) */}
-        {activeView === "GRID" ? (
+        {columns.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center my-auto min-h-[450px]">
+            <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 mb-4 shadow-xs">
+              <FileSpreadsheet className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800 mb-1">
+              Tabulka zatím nemá žádné sloupce
+            </h3>
+            <p className="text-xs text-slate-500 max-w-sm mb-6">
+              Nová tabulka je připravena zcela prázdná. Přidejte sloupce podle svých představ.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setNewColLabel("");
+                setNewColKey("");
+                setIsNewColKeyManual(false);
+                setShowAddColumnModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:scale-105 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Přidat první sloupec
+            </button>
+          </div>
+        ) : activeView === "GRID" ? (
           <>
             <div className="flex-1 overflow-auto px-6 py-2">
               <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden inline-block min-w-full">
