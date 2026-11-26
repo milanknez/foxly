@@ -42,6 +42,8 @@ export interface EmailActionConfig {
   subject: string;
   body: string;
   attachmentFieldKey?: string; // Klíč sloupce s přílohami / URL (např. fld_files nebo fld_invoice)
+  staticAttachmentUrl?: string; // Pevná URL adresa přílohy (např. stálý životopis/CV)
+  staticAttachmentName?: string; // Vlastní název přílohy (např. Zivotopis-Milan-Knez.pdf)
 }
 
 export interface UpdateFieldActionConfig {
@@ -278,8 +280,29 @@ export async function executeAction(
       const subject = replaceTemplateVariables(config.subject || "Notifikace z Foxly", recordData, columns);
       const body = replaceTemplateVariables(config.body || "Záznam byl aktualizován.", recordData, columns);
 
-      // Přílohy ze sloupce (např. nahraný soubor, PDF, obrázek nebo URL)
+      // Přílohy ze sloupce (např. nahraný soubor, PDF, obrázek nebo URL) nebo pevná URL
       const attachments: Array<{ filename: string; path?: string; content?: string }> = [];
+
+      // 1. Pevná stálá příloha z konfigurace (např. životopis / stálé PDF)
+      if (config.staticAttachmentUrl && config.staticAttachmentUrl.trim()) {
+        const rawUrl = replaceTemplateVariables(config.staticAttachmentUrl.trim(), recordData, columns);
+        let customName = config.staticAttachmentName?.trim() || "";
+        if (!customName) {
+          try {
+            const urlObj = new URL(rawUrl, "http://localhost");
+            const extName = urlObj.pathname.substring(urlObj.pathname.lastIndexOf("/") + 1);
+            customName = extName && extName.includes(".") ? extName : "Zivotopis.pdf";
+          } catch {
+            customName = "Zivotopis.pdf";
+          }
+        }
+        attachments.push({
+          filename: customName,
+          path: rawUrl,
+        });
+      }
+
+      // 2. Příloha z dynamického sloupce v řádku
       if (config.attachmentFieldKey && recordData[config.attachmentFieldKey]) {
         const rawAttachment = recordData[config.attachmentFieldKey];
         const colDef = columns.find((c) => c.key === config.attachmentFieldKey);

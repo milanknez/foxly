@@ -1321,37 +1321,82 @@ export default function WorkflowsClient({
                                 ))}
                               </div>
 
-                              {/* Výběr přílohy (soubor ze sloupce) */}
-                              <div className="pt-2 border-t border-slate-100">
-                                <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
-                                  <span>📎 Přiložit soubor / dokument ze sloupce (volitelné)</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">
-                                    Odešle PDF, obrázek nebo přílohu z daného řádku
-                                  </span>
-                                </label>
-                                <select
-                                  value={String(act.config.attachmentFieldKey || "")}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setActions((prev) =>
-                                      prev.map((a) =>
-                                        a.id === act.id
-                                          ? { ...a, config: { ...a.config, attachmentFieldKey: val } }
-                                          : a
-                                      )
-                                    );
-                                  }}
-                                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-slate-800 bg-white"
-                                >
-                                  <option value="">— Žádná příloha (pouze text e-mailu) —</option>
-                                  {currentTable?.columns
-                                    .filter((c) => c.type === "FILE" || c.type === "IMAGE" || c.type === "URL" || c.type === "TEXT")
-                                    .map((c) => (
-                                      <option key={c.id} value={c.key}>
-                                        {c.label} ({c.type})
-                                      </option>
-                                    ))}
-                                </select>
+                              {/* Přílohy: Pevný soubor (např. stálý životopis) i dynamický soubor z řádku */}
+                              <div className="pt-2 border-t border-slate-100 space-y-3">
+                                <div>
+                                  <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                    <span>📎 Pevná URL adresa přílohy (např. stálé CV / životopis)</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">
+                                      Stálý odkaz na PDF – nemusíte nahrávat do řádků
+                                    </span>
+                                  </label>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="https://domena.cz/zivotopis.pdf"
+                                      value={String(act.config.staticAttachmentUrl || "")}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setActions((prev) =>
+                                          prev.map((a) =>
+                                            a.id === act.id
+                                              ? { ...a, config: { ...a.config, staticAttachmentUrl: val } }
+                                              : a
+                                          )
+                                        );
+                                      }}
+                                      className="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded text-slate-800 bg-white text-xs font-mono"
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="Název: Zivotopis.pdf"
+                                      value={String(act.config.staticAttachmentName || "")}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setActions((prev) =>
+                                          prev.map((a) =>
+                                            a.id === act.id
+                                              ? { ...a, config: { ...a.config, staticAttachmentName: val } }
+                                              : a
+                                          )
+                                        );
+                                      }}
+                                      className="px-3 py-1.5 border border-slate-300 rounded text-slate-800 bg-white text-xs"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                    <span>📎 Nebo přiložit soubor ze sloupce tabulky</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">
+                                      Ze sloupce daného řádku
+                                    </span>
+                                  </label>
+                                  <select
+                                    value={String(act.config.attachmentFieldKey || "")}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setActions((prev) =>
+                                        prev.map((a) =>
+                                          a.id === act.id
+                                            ? { ...a, config: { ...a.config, attachmentFieldKey: val } }
+                                            : a
+                                        )
+                                      );
+                                    }}
+                                    className="w-full px-3 py-1.5 border border-slate-300 rounded text-slate-800 bg-white text-xs"
+                                  >
+                                    <option value="">— Žádný sloupec nevybrán —</option>
+                                    {currentTable?.columns
+                                      .filter((c) => c.type === "FILE" || c.type === "IMAGE" || c.type === "URL" || c.type === "TEXT")
+                                      .map((c) => (
+                                        <option key={c.id} value={c.key}>
+                                          {c.label} ({c.type})
+                                        </option>
+                                      ))}
+                                  </select>
+                                </div>
                               </div>
                             </div>
                           )}
