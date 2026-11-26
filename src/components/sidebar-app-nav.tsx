@@ -85,9 +85,28 @@ export default function SidebarAppNav({
 
   // Přečteme z URL aktuální appId a tableId: /[workspaceSlug]/[appId]/[tableId]
   const segments = pathname.split("/").filter(Boolean);
-  const routeAppId = segments[1] && segments[1] !== "users" && segments[1] !== "settings" ? segments[1] : null;
-  const routeTableId = segments[2] && segments[2] !== "dashboard" ? segments[2] : null;
-  const routeDashboardId = segments[2] === "dashboard" ? segments[3] : null;
+  const isSubdomain = segments[0] !== workspace.slug;
+  const offset = isSubdomain ? 0 : 1;
+  const routeAppId =
+    segments[offset] && segments[offset] !== "users" && segments[offset] !== "settings"
+      ? segments[offset]
+      : null;
+  const routeTableId =
+    segments[offset + 1] && segments[offset + 1] !== "dashboard" ? segments[offset + 1] : null;
+  const routeDashboardId = segments[offset + 1] === "dashboard" ? segments[offset + 2] : null;
+
+  // Přesná kontrola aktivního stavu pro globální sekce firmy (aby se nerosvěcovaly např. u /app/table/settings)
+  const isCompanySettingsActive =
+    pathname === `/${workspace.slug}/settings` ||
+    pathname === "/settings" ||
+    pathname.startsWith(`/${workspace.slug}/settings/`) ||
+    pathname.startsWith("/settings/");
+
+  const isCompanyUsersActive =
+    pathname === `/${workspace.slug}/users` ||
+    pathname === "/users" ||
+    pathname.startsWith(`/${workspace.slug}/users/`) ||
+    pathname.startsWith("/users/");
 
   // Vybraná aktivní aplikace dynamicky podle URL, jinak první v pořadí
   const currentApp =
@@ -463,7 +482,7 @@ export default function SidebarAppNav({
           <Link
             href={`/${workspace.slug}/users`}
             prefetch={false}
-            className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname.endsWith("/users")
+            className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${isCompanyUsersActive
               ? "bg-purple-600 text-white font-bold"
               : "text-slate-300 hover:text-white hover:bg-slate-800"
               }`}
@@ -475,7 +494,7 @@ export default function SidebarAppNav({
           <Link
             href={`/${workspace.slug}/settings`}
             prefetch={false}
-            className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname.endsWith("/settings")
+            className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${isCompanySettingsActive
               ? "bg-blue-600 text-white font-bold"
               : "text-slate-300 hover:text-white hover:bg-slate-800"
               }`}
