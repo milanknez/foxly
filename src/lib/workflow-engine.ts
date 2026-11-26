@@ -332,19 +332,15 @@ export async function executeAction(
       }
 
       // Odeslání přes email-service (Nodemailer SMTP nebo Mailpit fallback)
+      // Čistý formát bez rámečků, nadpisů a reklamního patičkového textu
+      const formattedHtml = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap;">${body}</div>`;
+
       const emailRes = await sendEmail({
         smtpConfig,
         to,
         subject,
         text: body,
-        html: `<div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #1e60f0; margin-top: 0;">${subject}</h2>
-          <div style="background: #f8fafc; border-left: 4px solid #1e60f0; padding: 15px; margin: 15px 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${body}</div>
-          ${attachments.length > 0 ? `<p style="font-size: 12px; color: #64748b;">📎 Přiložen soubor: <strong>${attachments[0].filename}</strong></p>` : ""}
-          <p style="color: #94a3b8; font-size: 11px; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
-            Automaticky vygenerováno systémem Foxly pro tabulku <strong>${tableName}</strong>.
-          </p>
-        </div>`,
+        html: formattedHtml,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
 
