@@ -90,7 +90,37 @@ export default function RecordDetailModal({
   const { confirm, alert } = useDialog();
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"fields" | "audit">("fields");
+
+  // Nahrání souboru na server do PVC s kontrolou 100MB limitu firmy
+  const handleFileUpload = async (colKey: string, file: File) => {
+    setUploadingField(colKey);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      if (workspaceSlug) {
+        data.append("workspaceSlug", workspaceSlug);
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: data,
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Chyba při nahrávání souboru");
+      }
+
+      handleFieldChange(colKey, json.url);
+    } catch (err) {
+      console.error(err);
+      await alert(err instanceof Error ? err.message : "Nahrání souboru se nezdařilo");
+    } finally {
+      setUploadingField(null);
+    }
+  };
 
   useEffect(() => {
     if (record) {
@@ -429,19 +459,18 @@ export default function RecordDetailModal({
                             placeholder="Vložte URL souboru (https://...)"
                             className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e60f0]/30 focus:border-[#1e60f0]"
                           />
-                          <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer border border-slate-200 flex items-center gap-1 shrink-0 transition-colors">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>{val ? "Změnit" : "Nahrát"}</span>
+                          <label className={`px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer border border-slate-200 flex items-center gap-1 shrink-0 transition-colors ${uploadingField === col.key ? "opacity-50 pointer-events-none" : ""}`}>
+                            {uploadingField === col.key ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1e60f0]" /> : <Upload className="w-3.5 h-3.5" />}
+                            <span>{uploadingField === col.key ? "Nahrávám..." : val ? "Změnit" : "Nahrát"}</span>
                             <input
                               type="file"
                               accept="*/*"
+                              disabled={uploadingField === col.key}
                               className="hidden"
                               onChange={(e) => {
                                 const f = e.target.files?.[0];
                                 if (f) {
-                                  const r = new FileReader();
-                                  r.onload = () => handleFieldChange(col.key, r.result);
-                                  r.readAsDataURL(f);
+                                  handleFileUpload(col.key, f);
                                 }
                               }}
                             />
@@ -487,19 +516,18 @@ export default function RecordDetailModal({
                             placeholder="Vložte URL obrázku (https://...)"
                             className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1e60f0]/30 focus:border-[#1e60f0]"
                           />
-                          <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer border border-slate-200 flex items-center gap-1 shrink-0 transition-colors">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>{val ? "Změnit" : "Nahrát"}</span>
+                          <label className={`px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer border border-slate-200 flex items-center gap-1 shrink-0 transition-colors ${uploadingField === col.key ? "opacity-50 pointer-events-none" : ""}`}>
+                            {uploadingField === col.key ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1e60f0]" /> : <Upload className="w-3.5 h-3.5" />}
+                            <span>{uploadingField === col.key ? "Nahrávám..." : val ? "Změnit" : "Nahrát"}</span>
                             <input
                               type="file"
                               accept="image/*"
+                              disabled={uploadingField === col.key}
                               className="hidden"
                               onChange={(e) => {
                                 const f = e.target.files?.[0];
                                 if (f) {
-                                  const r = new FileReader();
-                                  r.onload = () => handleFieldChange(col.key, r.result);
-                                  r.readAsDataURL(f);
+                                  handleFileUpload(col.key, f);
                                 }
                               }}
                             />
