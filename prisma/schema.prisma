@@ -1,0 +1,269 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// 1. UŽIVATELÉ, WORKSPACE (FIRMY) A DOMÉNY
+// -------------------------------------------------------------
+
+model User {
+  id             String            @id @default(uuid())
+  email          String            @unique
+  passwordHash   String
+  name           String
+  avatarUrl      String?
+  isSystemAdmin  Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  memberships    WorkspaceMember[]
+  createdRecords Record[]          @relation("RecordCreator")
+  auditLogs      AuditLog[]
+  invitations    WorkspaceInvitation[]
+}
+
+model Workspace {
+  id             String                @id @default(uuid())
+  name           String
+  slug           String                @unique
+  subdomain      String?               @unique
+  customDomain   String?               @unique
+  domainVerified Boolean               @default(false)
+  logoUrl        String?
+  primaryColor   String?               @default("#3b82f6")
+  companyDetails Json?                 @default("{}")
+  plugins        Json?                 @default("[\"backup_zip\", \"custom_scripting\", \"custom_buttons\", \"webhooks_api\", \"ai_ocr\"]")
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  members        WorkspaceMember[]
+  invitations    WorkspaceInvitation[]
+  apps           App[]
+  apiKeys        ApiKey[]
+}
+
+model WorkspaceMember {
+  id               String                 @id @default(uuid())
+  workspaceId      String
+  userId           String
+  role             String                 @default("MEMBER") // OWNER, ADMIN, MEMBER
+  jobTitle         String?
+  allowedAppIds    String[]               @default([])
+  createdAt        DateTime               @default(now())
+  workspace        Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tablePermissions MemberTablePermission[]
+
+  @@unique([workspaceId, userId])
+}
+
+model MemberTablePermission {
+  id              String          @id @default(uuid())
+  memberId        String
+  tableId         String
+  permissionLevel String          @default("FULL_ACCESS") // FULL_ACCESS, READ_WRITE, READ_ONLY, OWN_RECORDS, NO_ACCESS
+  member          WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  table           Table           @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, tableId])
+}
+
+model WorkspaceInvitation {
+  id          String    @id @default(uuid())
+  workspaceId String
+  email       String
+  role        String    @default("MEMBER")
+  token       String    @unique
+  invitedById String
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  keyHash     String    @unique
+  permissions Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// -------------------------------------------------------------
+// 2. APLIKACE, TABULKY A SLOUPCE
+// -------------------------------------------------------------
+
+model App {
+  id          String      @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  icon        String      @default("Folder")
+  color       String      @default("#3b82f6")
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tables      Table[]
+  dashboards  Dashboard[]
+}
+
+model Table {
+  id                 String                   @id @default(uuid())
+  appId              String
+  name               String
+  singularName       String
+  icon               String                   @default("Table")
+  sortOrder          Int                      @default(0)
+  customScript       String?                  @default("")
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  app                App                      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  columns            Column[]
+  records            Record[]
+  views              View[]
+  automations        Automation[]
+  widgets            Widget[]
+  memberPermissions  MemberTablePermission[]
+}
+
+model Column {
+  id          String   @id @default(uuid())
+  tableId     String
+  key         String   // fld_xxxxx
+  label       String   // "Jméno a Příjmení"
+  type        String   // TEXT, NUMBER, CURRENCY, DATE, DATETIME, SELECT, MULTI_SELECT, CHECKBOX, RELATION, FILE, FORMULA, AUTO_NUMBER, USER
+  description String?
+  isPrimary   Boolean  @default(false)
+  isRequired  Boolean  @default(false)
+  isUnique    Boolean  @default(false)
+  defaultValue Json?
+  config      Json     @default("{}")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  table       Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, key])
+}
+
+// -------------------------------------------------------------
+// 3. POHLEDY, FORMULÁŘE (IFRAME) A DASHBOARDY
+// -------------------------------------------------------------
+
+model View {
+  id          String   @id @default(uuid())
+  tableId     String
+  name        String
+  type        String   @default("GRID") // GRID, FORM, KANBAN, CALENDAR, PRINT
+  isDefault   Boolean  @default(false)
+  isPublic    Boolean  @default(false)  // Veřejný formulář přes iframe
+  shareToken  String?  @unique          // Unikátní token pro veřejné iframe URL
+  sortOrder   Int      @default(0)
+  config      Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  table       Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+}
+
+model Dashboard {
+  id          String   @id @default(uuid())
+  appId       String
+  name        String
+  description String?
+  icon        String   @default("LayoutDashboard")
+  sortOrder   Int      @default(0)
+  layout      Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  widgets     Widget[]
+}
+
+model Widget {
+  id           String    @id @default(uuid())
+  dashboardId  String
+  tableId      String
+  title        String
+  type         String    // KPI_METRIC, BAR_CHART, LINE_CHART, PIE_CHART, SUMMARY_TABLE
+  targetField  String?
+  aggregation  String    @default("COUNT") // COUNT, SUM, AVG, MIN, MAX
+  groupField   String?
+  dateGrouping String?
+  filterRules  Json      @default("[]")
+  config       Json      @default("{}")
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  dashboard    Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  table        Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+}
+
+// -------------------------------------------------------------
+// 4. ZÁZNAMY, AUDIT A AUTOMATIZACE
+// -------------------------------------------------------------
+
+model Record {
+  id          String     @id @default(uuid())
+  tableId     String
+  data        Json       @default("{}")
+  source      String     @default("INTERNAL") // INTERNAL, WEB_FORM, EXCEL_IMPORT, API
+  createdById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  table       Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  createdBy   User?      @relation("RecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  auditLogs   AuditLog[]
+
+  @@index([tableId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  recordId  String
+  userId    String?
+  action    String   // CREATE, UPDATE, DELETE, IMPORT, WEB_SUBMIT
+  changes   Json     @default("{}")
+  timestamp DateTime @default(now())
+  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([recordId])
+}
+
+model Automation {
+  id            String          @id @default(uuid())
+  tableId       String
+  name          String
+  description   String?
+  triggerType   String          // ON_CREATE, ON_FIELD_CHANGE, ON_UPDATE, ON_FORM_SUBMIT
+  triggerConfig Json            @default("{}") // { fieldKey?: string, fromValue?: any, toValue?: any }
+  conditions    Json            @default("[]") // Array of { id: string, fieldKey: string, operator: string, value: any }
+  actionType    String          @default("MULTI") // SEND_WEBHOOK, SEND_EMAIL, UPDATE_FIELD, MULTI
+  actionConfig  Json            @default("{}")
+  actions       Json            @default("[]") // Array of { id: string, type: string, config: any }
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  executionLogs AutomationLog[]
+  table         Table           @relation(fields: [tableId], references: [id], onDelete: Cascade)
+}
+
+model AutomationLog {
+  id           String     @id @default(uuid())
+  automationId String
+  recordId     String?
+  status       String     // SUCCESS, FAILED, SKIPPED
+  triggerEvent String
+  details      Json       @default("{}")
+  createdAt    DateTime   @default(now())
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+}
