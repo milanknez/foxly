@@ -107,6 +107,7 @@ export async function POST(
       },
       // Surový token se vrací POUZE JEDNOU při vytvoření!
       token,
+      rawKey: token,
     });
   } catch (error) {
     console.error("POST api-keys error:", error);

@@ -188,7 +188,11 @@ export default function WorkspaceSettingsClient({
         return;
       }
 
-      setNewlyCreatedToken(data.rawKey);
+      const generatedToken = data.token || data.rawKey;
+      setNewlyCreatedToken(generatedToken);
+      if (data.apiKey) {
+        setApiKeys((prev) => [data.apiKey, ...prev.filter((k) => k.id !== data.apiKey.id)]);
+      }
       setNewKeyName("");
       setIsCreatingKey(false);
       fetchApiKeys();
@@ -1218,6 +1222,71 @@ export default function WorkspaceSettingsClient({
                   <span>Vytvořit nový API klíč</span>
                 </button>
               </div>
+
+              {/* Modální okno pro vygenerovaný token */}
+              {newlyCreatedToken && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5 animate-in zoom-in-95">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <Key className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-base font-bold text-slate-900">API klíč byl úspěšně vygenerován</h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Zkopírujte si tento token ihned. Z bezpečnostních důvodů jej ukládáme pouze v šifrované podobě (SHA-256 hash) a po zavření již nebude možné jej znovu zobrazit.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
+                        <span>Váš tajný API token:</span>
+                        {copiedToken && (
+                          <span className="text-emerald-600 font-bold flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Zkopírováno!
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-xs bg-white p-3 border border-slate-300 rounded-lg text-slate-900 break-all select-all font-semibold shadow-inner">
+                        {newlyCreatedToken}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p>
+                        Token bezpečně uložte do konfigurace Vašeho AI asistenta nebo do proměnných prostředí (.env).
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(newlyCreatedToken);
+                          setCopiedToken(true);
+                          setTimeout(() => setCopiedToken(false), 2500);
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                      >
+                        {copiedToken ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        <span>{copiedToken ? "Zkopírováno!" : "Kopírovat token"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewlyCreatedToken(null);
+                          setCopiedToken(false);
+                        }}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Mám uloženo, zavřít
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Upozornění na nově vygenerovaný token */}
               {newlyCreatedToken && (
