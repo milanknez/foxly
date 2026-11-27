@@ -35,9 +35,11 @@ import {
   Terminal,
   Plus,
   Send,
+  HardDrive,
 } from "lucide-react";
 import { ANIMATED_AVATAR_PRESETS, getRandomAnimatedAvatar } from "@/lib/avatars";
 import { useDialog } from "@/components/ui/dialog-provider";
+import type { WorkspaceStorageStats } from "@/lib/storage";
 
 interface WorkspaceData {
   id: string;
@@ -115,6 +117,7 @@ export default function WorkspaceSettingsClient({
   workspace,
   userRole,
   currentUser,
+  storageUsage,
 }: {
   workspace: WorkspaceData;
   userRole: string;
@@ -124,10 +127,12 @@ export default function WorkspaceSettingsClient({
     email: string;
     avatarUrl?: string | null;
   } | null;
+  storageUsage?: WorkspaceStorageStats | null;
 }) {
   const router = useRouter();
   const { alert, confirm } = useDialog();
   const [activeTab, setActiveTab] = useState<"company" | "plugins" | "backup" | "profile" | "smtp" | "api">("company");
+  const [storage, setStorage] = useState<WorkspaceStorageStats | null>(storageUsage || null);
 
   // API & AI Integrace
   const [apiKeys, setApiKeys] = useState<Array<{
@@ -492,7 +497,17 @@ export default function WorkspaceSettingsClient({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {storage && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs shadow-2xs">
+              <HardDrive className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="text-slate-500 font-medium">Úložiště:</span>
+              <span className="font-bold text-slate-800">
+                {storage.usedFormatted} / {storage.limitFormatted}
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono">({storage.percentage} %)</span>
+            </div>
+          )}
           {savedSuccess && (
             <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 animate-in fade-in">
               <Check className="w-3.5 h-3.5" /> Uloženo!
@@ -606,6 +621,56 @@ export default function WorkspaceSettingsClient({
         {/* 1. ZÁLOŽKA: MOJE FIRMA */}
         {activeTab === "company" && (
           <form onSubmit={handleSaveSettings} className="space-y-6">
+            {/* Karta: Využití diskového úložiště */}
+            {storage && (
+              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <HardDrive className="w-4 h-4 text-blue-600" />
+                    <span>Diskové úložiště firmy (Přílohy a soubory)</span>
+                  </h2>
+                  <div className="text-xs font-bold text-slate-700">
+                    <span className="text-blue-600 font-mono">{storage.usedFormatted}</span>
+                    <span className="text-slate-400 font-normal"> / {storage.limitFormatted}</span>
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      storage.percentage >= 90
+                        ? "bg-red-100 text-red-700"
+                        : storage.percentage >= 75
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {storage.percentage} % zaplněno
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                  <div
+                    className={`h-full transition-all duration-500 rounded-full ${
+                      storage.percentage >= 90
+                        ? "bg-red-500"
+                        : storage.percentage >= 75
+                        ? "bg-amber-500"
+                        : "bg-blue-600"
+                    }`}
+                    style={{ width: `${Math.max(storage.percentage, storage.usedBytes > 0 ? 1 : 0)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>
+                    Celkem uloženo <strong>{storage.fileCount}</strong> souborů v tabulkách a přílohách
+                  </span>
+                  <span>
+                    Zbývá volné místo:{" "}
+                    <strong className="text-slate-700">
+                      {Math.max(0, Number(((storage.limitBytes - storage.usedBytes) / (1024 * 1024)).toFixed(1)))} MB
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Sekce 1: Logo a název */}
             <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-5">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -964,7 +1029,7 @@ export default function WorkspaceSettingsClient({
             </div>
 
             {/* Statistika dat k zálohování */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
                 <span className="text-[11px] font-bold text-slate-500 uppercase">
                   Aplikace ve firmě
@@ -986,6 +1051,21 @@ export default function WorkspaceSettingsClient({
                   Celkem řádků (záznamů)
                 </span>
                 <div className="text-2xl font-black text-blue-600 mt-1">{totalRecords}</div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <span className="text-[11px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                  <span>Úložiště souborů</span>
+                  {storage && (
+                    <span className="text-[10px] text-blue-600 font-mono font-bold">
+                      {storage.percentage} %
+                    </span>
+                  )}
+                </span>
+                <div className="text-xl font-black text-slate-900 mt-1">
+                  {storage ? storage.usedFormatted : "0 B"}
+                  <span className="text-xs font-normal text-slate-500 ml-1">/ 100 MB</span>
+                </div>
               </div>
             </div>
 

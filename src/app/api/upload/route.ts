@@ -4,28 +4,7 @@ import { db } from "@/lib/db";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-
-const MAX_WORKSPACE_STORAGE_BYTES = 100 * 1024 * 1024; // 100 MB limit na firmu
-
-// Pomocná funkce pro výpočet velikosti složky
-async function getDirectorySizeBytes(dirPath: string): Promise<number> {
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    let totalSize = 0;
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        totalSize += await getDirectorySizeBytes(fullPath);
-      } else if (entry.isFile()) {
-        const stats = await fs.stat(fullPath);
-        totalSize += stats.size;
-      }
-    }
-    return totalSize;
-  } catch {
-    return 0;
-  }
-}
+import { MAX_WORKSPACE_STORAGE_BYTES, getWorkspaceStorageStats } from "@/lib/storage";
 
 // Bezpečné pročištění názvu souboru (slugify) se zachováním přípony
 function sanitizeFilename(originalName: string): { base: string; ext: string } {
@@ -40,6 +19,24 @@ function sanitizeFilename(originalName: string): { base: string; ext: string } {
     .replace(/^-|-$/g, "") || "soubor";
 
   return { base: cleanBase, ext };
+}
+
+export async function GET(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Neautorizováno" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const workspaceSlug = searchParams.get("workspaceSlug") || "default";
+
+    const stats = await getWorkspaceStorageStats(workspaceSlug);
+    return NextResponse.json({ storage: stats });
+  } catch (error) {
+    console.error("GET /api/upload error:", error);
+    return NextResponse.json({ error: "Chyba při zjišťování využití úložiště" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -86,7 +83,8 @@ export async function POST(request: Request) {
     await fs.mkdir(uploadsDir, { recursive: true });
 
     // Kontrola stávajícího zaplnění disku pro firmu (100 MB limit)
-    const currentUsageBytes = await getDirectorySizeBytes(uploadsDir);
+    const statsBefore = await getWorkspaceStorageStats(workspaceSlug);
+    const currentUsageBytes = statsBefore.usedBytes;
     const newFileSize = file.size;
 
     if (currentUsageBytes + newFileSize > MAX_WORKSPACE_STORAGE_BYTES) {
@@ -114,6 +112,7 @@ export async function POST(request: Request) {
     // Veřejná URL adresa souboru
     const publicUrl = `/uploads/${workspaceSlug}/${safeFilename}`;
 
+    const newUsageBytes = currentUsageBytes + newFileSize;
     return NextResponse.json({
       success: true,
       message: "Soubor byl úspěšně nahrán",
@@ -121,9 +120,9 @@ export async function POST(request: Request) {
       filename: safeFilename,
       size: newFileSize,
       workspaceUsage: {
-        usedBytes: currentUsageBytes + newFileSize,
+        usedBytes: newUsageBytes,
         limitBytes: MAX_WORKSPACE_STORAGE_BYTES,
-        usedPercentage: Number((((currentUsageBytes + newFileSize) / MAX_WORKSPACE_STORAGE_BYTES) * 100).toFixed(1)),
+        usedPercentage: Number(((newUsageBytes / MAX_WORKSPACE_STORAGE_BYTES) * 100).toFixed(1)),
       },
     });
   } catch (error) {

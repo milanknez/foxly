@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getWorkspaceStorageStats } from "@/lib/storage";
 import WorkspaceSettingsClient from "./workspace-settings-client";
 
 export default async function WorkspaceSettingsPage({
@@ -13,7 +14,7 @@ export default async function WorkspaceSettingsPage({
 
   const { workspaceSlug } = await params;
 
-  const [workspace, currentUser] = await Promise.all([
+  const [workspace, currentUser, storageUsage] = await Promise.all([
     db.workspace.findUnique({
       where: { slug: workspaceSlug },
       include: {
@@ -35,6 +36,7 @@ export default async function WorkspaceSettingsPage({
       where: { id: session.id },
       select: { id: true, name: true, email: true, avatarUrl: true },
     }),
+    getWorkspaceStorageStats(workspaceSlug),
   ]);
 
   if (!workspace) {
@@ -49,6 +51,7 @@ export default async function WorkspaceSettingsPage({
       workspace={JSON.parse(JSON.stringify(workspace))}
       userRole={userRole}
       currentUser={currentUser ? JSON.parse(JSON.stringify(currentUser)) : null}
+      storageUsage={storageUsage}
     />
   );
 }
