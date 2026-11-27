@@ -1,6 +1,43 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { sendEmail, SmtpConfig } from "@/lib/email-service";
+import fs from "fs/promises";
+import path from "path";
+
+// Pomocná funkce pro bezpečné vyřešení přílohy e-mailu (pokud je v lokálním PVC, načte přímo Buffer)
+async function resolveAttachment(
+  urlOrPath: string,
+  preferredName?: string
+): Promise<{ filename: string; path?: string; content?: Buffer }> {
+  let filename = preferredName?.trim() || "";
+  try {
+    const urlObj = new URL(urlOrPath, "http://localhost");
+    const extName = urlObj.pathname.substring(urlObj.pathname.lastIndexOf("/") + 1);
+    if (!filename && extName && extName.includes(".")) {
+      filename = extName;
+    }
+  } catch {
+    // ignore
+  }
+  if (!filename) filename = "priloha.pdf";
+
+  // Pokud je soubor v lokálním PVC úložišti (/uploads/...)
+  if (urlOrPath.includes("/uploads/")) {
+    const relativePart = urlOrPath.substring(urlOrPath.indexOf("/uploads/") + "/uploads/".length);
+    const localFsPath = path.join(process.cwd(), "public", "uploads", relativePart);
+    try {
+      const stats = await fs.stat(localFsPath);
+      if (stats.isFile()) {
+        const content = await fs.readFile(localFsPath);
+        return { filename, content };
+      }
+    } catch (e) {
+      console.warn("Could not read local attachment from disk, fallback to url:", localFsPath, e);
+    }
+  }
+
+  return { filename, path: urlOrPath };
+}
 
 export type TriggerType = "ON_CREATE" | "ON_FIELD_CHANGE" | "ON_UPDATE" | "MANUAL_BUTTON";
 
@@ -281,53 +318,26 @@ export async function executeAction(
       const body = replaceTemplateVariables(config.body || "Záznam byl aktualizován.", recordData, columns);
 
       // Přílohy ze sloupce (např. nahraný soubor, PDF, obrázek nebo URL) nebo pevná URL
-      const attachments: Array<{ filename: string; path?: string; content?: string }> = [];
+      const attachments: Array<{ filename: string; path?: string; content?: Buffer | string }> = [];
 
       // 1. Pevná stálá příloha z konfigurace (např. životopis / stálé PDF)
       if (config.staticAttachmentUrl && config.staticAttachmentUrl.trim()) {
         const rawUrl = replaceTemplateVariables(config.staticAttachmentUrl.trim(), recordData, columns);
-        let customName = config.staticAttachmentName?.trim() || "";
-        if (!customName) {
-          try {
-            const urlObj = new URL(rawUrl, "http://localhost");
-            const extName = urlObj.pathname.substring(urlObj.pathname.lastIndexOf("/") + 1);
-            customName = extName && extName.includes(".") ? extName : "Zivotopis.pdf";
-          } catch {
-            customName = "Zivotopis.pdf";
-          }
-        }
-        attachments.push({
-          filename: customName,
-          path: rawUrl,
-        });
+        const customName = config.staticAttachmentName?.trim() || "Zivotopis.pdf";
+        const att = await resolveAttachment(rawUrl, customName);
+        attachments.push(att);
       }
 
       // 2. Příloha z dynamického sloupce v řádku
       if (config.attachmentFieldKey && recordData[config.attachmentFieldKey]) {
         const rawAttachment = recordData[config.attachmentFieldKey];
         const colDef = columns.find((c) => c.key === config.attachmentFieldKey);
-        const colName = colDef?.label || "priloha";
+        const colName = colDef?.label || "priloha.pdf";
 
         if (typeof rawAttachment === "string" && rawAttachment.trim()) {
           const urlOrPath = rawAttachment.trim();
-          let filename = `${colName}`;
-          try {
-            const urlParts = new URL(urlOrPath, "http://localhost");
-            const pathname = urlParts.pathname;
-            const extractedName = pathname.substring(pathname.lastIndexOf("/") + 1);
-            if (extractedName && extractedName.includes(".")) {
-              filename = extractedName;
-            } else {
-              filename = `${colName}.pdf`;
-            }
-          } catch {
-            filename = `${colName}.pdf`;
-          }
-
-          attachments.push({
-            filename,
-            path: urlOrPath,
-          });
+          const att = await resolveAttachment(urlOrPath, `${colName}.pdf`);
+          attachments.push(att);
         }
       }
 

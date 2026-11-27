@@ -432,9 +432,8 @@ export default function RecordDetailModal({
                                 href={String(val)}
                                 target="_blank"
                                 rel="noreferrer"
-                                download
                                 className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200 flex items-center gap-1 transition-colors"
-                                title="Otevřít / stáhnout soubor"
+                                title="Otevřít soubor v nové záložce"
                               >
                                 <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
                                 <span>Otevřít</span>

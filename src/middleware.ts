@@ -5,11 +5,12 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
 
-  // 1. Ignorovat statické soubory, Next.js assets, API a veřejné formuláře
+  // 1. Ignorovat statické soubory, Next.js assets, API, nahrané soubory a veřejné formuláře
   if (
     url.pathname.startsWith("/_next") ||
     url.pathname.startsWith("/api") ||
     url.pathname.startsWith("/share") ||
+    url.pathname.startsWith("/uploads") ||
     url.pathname.includes(".")
   ) {
     return NextResponse.next();
