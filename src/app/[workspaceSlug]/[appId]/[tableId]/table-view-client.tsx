@@ -707,18 +707,27 @@ export default function TableViewClient({
   }, [table.id, table.automations]);
 
   const handleExecuteManualAutomation = async (auto: any) => {
+    if (selectedRecordIds.length === 0) {
+      showToast("Nejprve zaškrtněte v tabulce alespoň jeden řádek pro spuštění workflow.", "info");
+      return;
+    }
+
     setExecutingAutomationId(auto.id);
     try {
       const res = await fetch(`/api/automations/${auto.id}/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          recordIds: selectedRecordIds.length > 0 ? selectedRecordIds : records.map((r) => r.id),
+          recordIds: selectedRecordIds,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || `Workflow "${auto.name}" proběhlo úspěšně!`, "success");
+        if (data.skippedCount > 0 && data.successCount === 0) {
+          showToast(data.message || `Podmínky workflow "${auto.name}" nebyly u vybraných záznamů splněny.`, "info");
+        } else {
+          showToast(data.message || `Workflow "${auto.name}" proběhlo úspěšně!`, "success");
+        }
         const recRes = await fetch(`/api/tables/${table.id}/records`);
         if (recRes.ok) {
           const rData = await recRes.json();
@@ -2200,15 +2209,24 @@ export default function TableViewClient({
                 const cfg = (auto.triggerConfig || {}) as Record<string, any>;
                 const btnColor = cfg.buttonColor || "#059669";
                 const btnLabel = cfg.buttonLabel || auto.name;
+                const isNoSelection = selectedRecordIds.length === 0;
 
                 return (
                   <button
                     key={auto.id}
                     type="button"
                     onClick={() => handleExecuteManualAutomation(auto)}
-                    disabled={loading || executingAutomationId === auto.id}
-                    title={`Spustit workflow akce: ${auto.name}`}
-                    className="px-2.5 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all hover:brightness-110 cursor-pointer disabled:opacity-50"
+                    disabled={loading || executingAutomationId === auto.id || isNoSelection}
+                    title={
+                      isNoSelection
+                        ? `Pro spuštění "${auto.name}" nejprve zaškrtněte v tabulce alespoň jeden řádek`
+                        : `Spustit workflow "${auto.name}" pro ${selectedRecordIds.length} vybraných záznamů`
+                    }
+                    className={`px-2.5 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all ${
+                      isNoSelection
+                        ? "opacity-40 cursor-not-allowed grayscale-[40%]"
+                        : "hover:brightness-110 cursor-pointer"
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
                     style={{ backgroundColor: btnColor }}
                   >
                     {executingAutomationId === auto.id ? (
@@ -2217,6 +2235,11 @@ export default function TableViewClient({
                       <Zap className="w-3.5 h-3.5" />
                     )}
                     <span>{btnLabel}</span>
+                    {selectedRecordIds.length > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-mono">
+                        {selectedRecordIds.length}
+                      </span>
+                    )}
                   </button>
                 );
               })}
