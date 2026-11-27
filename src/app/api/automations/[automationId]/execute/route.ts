@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { executeAction, WorkflowAction } from "@/lib/workflow-engine";
+import { SmtpConfig } from "@/lib/email-service";
+import { Prisma } from "@prisma/client";
 
 export async function POST(
   req: NextRequest,
@@ -22,6 +24,11 @@ export async function POST(
       include: {
         table: {
           include: {
+            app: {
+              include: {
+                workspace: true,
+              },
+            },
             columns: true,
           },
         },
@@ -31,6 +38,10 @@ export async function POST(
     if (!automation) {
       return NextResponse.json({ error: "Automatizace nenalezena" }, { status: 404 });
     }
+
+    // Načteme SMTP konfiguraci firmy z workspace
+    const companyDetails = (automation.table.app?.workspace?.companyDetails as Record<string, any>) || {};
+    const smtpConfig = companyDetails.smtp as SmtpConfig | undefined;
 
     // Načteme dotčené záznamy
     const records = await db.record.findMany({
@@ -42,6 +53,8 @@ export async function POST(
 
     const actions = (Array.isArray(automation.actions) ? automation.actions : []) as unknown as WorkflowAction[];
     let successCount = 0;
+    const allActionResults: any[] = [];
+    let overallSuccess = true;
 
     for (const record of records) {
       const recordData = { ...((record.data || {}) as Record<string, unknown>) };
@@ -58,13 +71,19 @@ export async function POST(
           },
         };
 
-        await executeAction(normalizedAction, {
+        const res = await executeAction(normalizedAction, {
           recordId: record.id,
           recordData,
           tableId: automation.tableId,
           tableName: automation.table.name,
           columns: automation.table.columns.map((c) => ({ key: c.key, label: c.label })),
+          smtpConfig,
         });
+
+        allActionResults.push({ actionId: act.id, type: act.type, ...res });
+        if (res.status === "FAILED") {
+          overallSuccess = false;
+        }
       }
 
       await db.auditLog.create({
@@ -79,18 +98,20 @@ export async function POST(
       successCount++;
     }
 
-    // Záznam o spuštění workflow
+    // Záznam o spuštění workflow včetně akcí a příjemců pro zobrazení v logu
     await db.automationLog.create({
       data: {
         automationId: automation.id,
+        recordId: records[0]?.id || null,
         triggerEvent: "MANUAL_BUTTON_CLICK",
-        status: "SUCCESS",
+        status: overallSuccess ? "SUCCESS" : "FAILED",
         details: {
           executedBy: session.email,
           recordsAffected: records.length,
           successCount,
           recordIds: records.map((r) => r.id),
-        },
+          actionsExecuted: allActionResults,
+        } as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -98,6 +119,7 @@ export async function POST(
       success: true,
       message: `Workflow "${automation.name}" proběhlo úspěšně u ${records.length} záznamů.`,
       recordsAffected: records.length,
+      actionsExecuted: allActionResults,
     });
   } catch (error) {
     console.error("POST /api/automations/[id]/execute error:", error);

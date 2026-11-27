@@ -1608,7 +1608,11 @@ export default function WorkflowsClient({
                             <span className="font-bold text-slate-900">{log.automationName}</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-2 text-slate-500">
-                            <span>{log.triggerEvent}</span>
+                            <span>
+                              {log.triggerEvent === "MANUAL_BUTTON_CLICK"
+                                ? "Ruční spuštění akčním tlačítkem"
+                                : log.triggerEvent}
+                            </span>
                             {/* Zobrazení příjemce e-mailu a detailu z logu */}
                             {(() => {
                               const details = (log.details as any) || {};
