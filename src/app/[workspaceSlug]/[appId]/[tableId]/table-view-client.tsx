@@ -3259,7 +3259,7 @@ export default function TableViewClient({
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="text-[#1e60f0] hover:underline flex items-center gap-1 truncate max-w-[200px]"
+                                    className="text-[#1e60f0] hover:underline flex items-center gap-1 truncate max-w-full"
                                     title={String(val)}
                                   >
                                     <Globe className="w-3 h-3 shrink-0" />
