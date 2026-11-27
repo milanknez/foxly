@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { sendEmail, SmtpConfig } from "@/lib/email-service";
+import { enqueueEmail } from "@/lib/email-queue-service";
 import fs from "fs/promises";
 import path from "path";
 
@@ -258,9 +259,25 @@ export async function executeAction(
     columns: Array<{ key: string; label: string; type?: string }>;
     visitedAutomationIds?: Set<string>;
     smtpConfig?: SmtpConfig;
+    workspaceId?: string;
+    useEmailQueue?: boolean;
+    emailQueueDelaySeconds?: number;
+    automationId?: string;
   }
 ): Promise<{ status: "SUCCESS" | "FAILED"; message: string; details: unknown }> {
-  const { recordId, recordData, tableId, tableName, columns, visitedAutomationIds, smtpConfig } = context;
+  const {
+    recordId,
+    recordData,
+    tableId,
+    tableName,
+    columns,
+    visitedAutomationIds,
+    smtpConfig,
+    workspaceId,
+    useEmailQueue,
+    emailQueueDelaySeconds,
+    automationId,
+  } = context;
 
   try {
     if (action.type === "WEBHOOK") {
@@ -344,6 +361,39 @@ export async function executeAction(
       // Odeslání přes email-service (Nodemailer SMTP nebo Mailpit fallback)
       // Čistý formát bez rámečků, nadpisů a reklamního patičkového textu
       const formattedHtml = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap;">${body}</div>`;
+
+      // 3. Pokud je aktivní plugin Fronta e-mailů (Anti-Spam ochrana), zařadíme do fronty
+      if (useEmailQueue && workspaceId) {
+        const queuedItem = await enqueueEmail({
+          workspaceId,
+          automationId,
+          recordId,
+          to,
+          subject,
+          body,
+          html: formattedHtml,
+          attachments: attachments.length > 0 ? attachments : undefined,
+          delaySeconds: emailQueueDelaySeconds || 60,
+        });
+
+        const scheduledTimeStr = new Intl.DateTimeFormat("cs-CZ", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }).format(new Date(queuedItem.scheduledFor));
+
+        return {
+          status: "SUCCESS",
+          message: `E-mail pro ${to} byl bezpečně zařazen do fronty (odeslání naplánováno na ${scheduledTimeStr})`,
+          details: {
+            queued: true,
+            queueItemId: queuedItem.id,
+            scheduledFor: queuedItem.scheduledFor,
+            to,
+            subject,
+          },
+        };
+      }
 
       const emailRes = await sendEmail({
         smtpConfig,
@@ -473,8 +523,13 @@ export async function triggerAutomationsForEvent(params: {
       return [];
     }
 
-    const companyDetails = (table.app?.workspace?.companyDetails as Record<string, any>) || {};
+    const workspace = table.app?.workspace;
+    const workspaceId = workspace?.id;
+    const companyDetails = (workspace?.companyDetails as Record<string, any>) || {};
     const smtpConfig = companyDetails.smtp as SmtpConfig | undefined;
+    const plugins = (Array.isArray(workspace?.plugins) ? workspace?.plugins : []) as string[];
+    const useEmailQueue = Boolean(workspaceId && plugins.includes("email_queue"));
+    const emailQueueDelaySeconds = Number(companyDetails.emailQueueDelay || 60);
 
     const results = [];
 
@@ -590,6 +645,10 @@ export async function triggerAutomationsForEvent(params: {
           columns: table.columns,
           visitedAutomationIds: nextVisited,
           smtpConfig,
+          workspaceId,
+          useEmailQueue,
+          emailQueueDelaySeconds,
+          automationId: automation.id,
         });
 
         actionExecResults.push({ actionId: act.id, type: act.type, ...res });

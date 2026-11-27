@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check, X } from "lucide-react";
 
 export interface SelectOption {
@@ -66,21 +67,41 @@ export default function SelectBadge({
 }: SelectBadgeProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
 
-  // Zavření dropdownu při kliknutí mimo
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+    setMounted(true);
+  }, []);
+
+  const updateCoords = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placeTop = spaceBelow < 250 && rect.top > 250;
+    setCoords({
+      top: placeTop ? undefined : rect.bottom + 4,
+      bottom: placeTop ? window.innerHeight - rect.top + 4 : undefined,
+      left: Math.max(10, Math.min(rect.left, window.innerWidth - 220)),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updateCoords();
+
+    const handleScrollOrResize = () => {
+      setIsOpen(false);
     };
-  }, [isOpen]);
+
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
+    return () => {
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, [isOpen, updateCoords]);
 
   const valStr = String(value ?? "").trim().toLowerCase();
   const currentOption = options.find(
@@ -189,7 +210,15 @@ export default function SelectBadge({
     <div ref={containerRef} className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!isOpen) {
+            updateCoords();
+            setIsOpen(true);
+          } else {
+            setIsOpen(false);
+          }
+        }}
         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs transition-all focus:outline-none cursor-pointer group ${buttonClasses} ${className}`}
         style={buttonStyle}
       >
@@ -219,56 +248,76 @@ export default function SelectBadge({
         />
       </button>
 
-      {isOpen && (
-        <div className="absolute left-0 mt-1 min-w-[180px] bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
-          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-            <span>Možnosti</span>
-            {value && (
-              <button
-                type="button"
-                onClick={() => {
-                  onChange("");
-                  setIsOpen(false);
-                }}
-                className="text-slate-400 hover:text-red-500 flex items-center gap-0.5 text-[9px]"
-              >
-                <X className="w-2.5 h-2.5" /> Vymazat
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-56 overflow-auto py-0.5">
-            {options.map((opt, idx) => {
-              const optColor = getOptionColor(opt.label, opt.color, idx);
-              const isSelected = opt.label === value || opt.id === value;
-
-              return (
+      {isOpen && mounted && coords && createPortal(
+        <>
+          {/* Průhledná celoobrazovková vrstva pro spolehlivé zavření klikem mimo */}
+          <div
+            className="fixed inset-0 z-[9998]"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: `${coords.left}px`,
+            }}
+            className="min-w-[190px] bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-[9999] text-xs font-sans animate-in fade-in zoom-in-95 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between border-b border-slate-100">
+              <span>Možnosti</span>
+              {value && (
                 <button
-                  key={opt.id}
                   type="button"
                   onClick={() => {
-                    onChange(opt.label);
+                    onChange("");
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center justify-between gap-2 transition-colors cursor-pointer ${
-                    isSelected ? "bg-slate-100/70 font-bold" : "text-slate-700"
-                  }`}
+                  className="text-slate-400 hover:text-red-500 flex items-center gap-0.5 text-[9px] cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <span
-                      className={`${shapeClass} shrink-0 shadow-xs`}
-                      style={{ backgroundColor: optColor }}
-                    />
-                    <span className="truncate">{opt.label}</span>
-                  </div>
-                  {isSelected && (
-                    <Check className="w-3.5 h-3.5 text-[#1e60f0] shrink-0" />
-                  )}
+                  <X className="w-2.5 h-2.5" /> Vymazat
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            <div className="max-h-60 overflow-y-auto py-1">
+              {options.map((opt, idx) => {
+                const optColor = getOptionColor(opt.label, opt.color, idx);
+                const isSelected = opt.label === value || opt.id === value;
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.label);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                      isSelected ? "bg-slate-100/70 font-bold" : "text-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span
+                        className={`${shapeClass} shrink-0 shadow-xs`}
+                        style={{ backgroundColor: optColor }}
+                      />
+                      <span className="truncate">{opt.label}</span>
+                    </div>
+                    {isSelected && (
+                      <Check className="w-3.5 h-3.5 text-[#1e60f0] shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
     </div>
   );

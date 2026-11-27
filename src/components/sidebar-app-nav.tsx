@@ -32,6 +32,7 @@ import {
   Building2,
   Globe,
   Sparkles,
+  Mail,
 } from "lucide-react";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { TABLE_ICON_MAP, TABLE_ICON_LIST, getTableIcon } from "@/lib/table-icons";
@@ -65,6 +66,7 @@ interface WorkspaceData {
   id: string;
   name: string;
   slug: string;
+  plugins?: string[];
   apps: AppItem[];
 }
 
@@ -478,6 +480,20 @@ export default function SidebarAppNav({
             <Globe className="w-3.5 h-3.5 text-cyan-400" />
             <span>Web Scraper</span>
           </Link>
+
+          {Array.isArray(workspace.plugins) && workspace.plugins.includes("email_queue") && (
+            <Link
+              href={`/${workspace.slug}/email-queue`}
+              prefetch={false}
+              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname.includes("/email-queue")
+                ? "bg-sky-600 text-white font-bold"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
+                }`}
+            >
+              <Mail className="w-3.5 h-3.5 text-sky-400" />
+              <span>Fronta e-mailů</span>
+            </Link>
+          )}
 
           <Link
             href={`/${workspace.slug}/users`}

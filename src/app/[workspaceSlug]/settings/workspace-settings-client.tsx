@@ -109,6 +109,14 @@ const AVAILABLE_PLUGINS = [
     category: "Data & Bezpečnost",
     color: "#475569",
   },
+  {
+    id: "email_queue",
+    name: "Fronta e-mailů & Anti-Spam ochrana",
+    desc: "Postupné odesílání e-mailů s nastavitelnou prodlevou (např. 1, 3 nebo 5 minut) pro ochranu před spam filtry a blokací SMTP serveru. Zpřístupní sekci Fronta e-mailů v bočním panelu.",
+    icon: Mail,
+    category: "Workflow & E-mail",
+    color: "#0284c7",
+  },
 ];
 
 
@@ -988,6 +996,15 @@ export default function WorkspaceSettingsClient({
                         >
                           <Download className="w-3 h-3" /> Stáhnout zálohu nyní
                         </button>
+                      )}
+
+                      {plug.id === "email_queue" && isEnabled && (
+                        <Link
+                          href={`/${workspace.slug}/email-queue`}
+                          className="text-sky-600 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Mail className="w-3 h-3" /> Otevřít frontu e-mailů →
+                        </Link>
                       )}
                     </div>
                   </div>

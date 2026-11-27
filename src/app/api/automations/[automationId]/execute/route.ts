@@ -47,9 +47,14 @@ export async function POST(
       return NextResponse.json({ error: "Automatizace nenalezena" }, { status: 404 });
     }
 
-    // Načteme SMTP konfiguraci firmy z workspace
-    const companyDetails = (automation.table.app?.workspace?.companyDetails as Record<string, any>) || {};
+    // Načteme SMTP konfiguraci firmy z workspace a pluginy
+    const workspace = automation.table.app?.workspace;
+    const workspaceId = workspace?.id;
+    const companyDetails = (workspace?.companyDetails as Record<string, any>) || {};
     const smtpConfig = companyDetails.smtp as SmtpConfig | undefined;
+    const plugins = (Array.isArray(workspace?.plugins) ? workspace?.plugins : []) as string[];
+    const isQueueEnabled = Boolean(workspaceId && plugins.includes("email_queue"));
+    const queueDelaySeconds = Number(companyDetails.emailQueueDelay || 60);
 
     // Načteme dotčené vybrané záznamy
     const records = await db.record.findMany({
@@ -119,6 +124,10 @@ export async function POST(
           tableName: automation.table.name,
           columns: automation.table.columns.map((c) => ({ key: c.key, label: c.label })),
           smtpConfig,
+          workspaceId,
+          useEmailQueue: isQueueEnabled,
+          emailQueueDelaySeconds: queueDelaySeconds,
+          automationId: automation.id,
         });
 
         allActionResults.push({ actionId: act.id, type: act.type, ...res });
@@ -170,9 +179,23 @@ export async function POST(
       });
     }
 
+    const delayText =
+      queueDelaySeconds < 60
+        ? `${queueDelaySeconds} s`
+        : queueDelaySeconds === 60
+        ? "1 minuta"
+        : queueDelaySeconds % 60 === 0
+        ? `${queueDelaySeconds / 60} min`
+        : `${Math.floor(queueDelaySeconds / 60)} min ${queueDelaySeconds % 60} s`;
+
+    const successMessage =
+      isQueueEnabled && actions.some((a) => a.type === "EMAIL" || (a.type as string) === "SEND_EMAIL")
+        ? `Workflow "${automation.name}" proběhlo u ${successCount} záznamů. E-maily byly zařazeny do fronty s prodlevou ${delayText} (průběh odesílání můžete sledovat v sekci Fronta e-mailů).${skippedCount > 0 ? ` (${skippedCount} přeskočeno pro nesplnění podmínek)` : ""}`
+        : `Workflow "${automation.name}" proběhlo úspěšně u ${successCount} záznamů${skippedCount > 0 ? ` (${skippedCount} přeskočeno pro nesplnění podmínek)` : ""}.`;
+
     return NextResponse.json({
       success: true,
-      message: `Workflow "${automation.name}" proběhlo úspěšně u ${successCount} záznamů${skippedCount > 0 ? ` (${skippedCount} přeskočeno pro nesplnění podmínek)` : ""}.`,
+      message: successMessage,
       recordsAffected: records.length,
       successCount,
       skippedCount,

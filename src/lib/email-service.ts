@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 export interface SmtpConfig {
   host?: string;
   port?: number | string;
@@ -38,6 +36,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
   // 1. Pokud je nakonfigurován externí SMTP server
   if (host) {
     try {
+      const nodemailerModule = await import("nodemailer");
+      const nodemailer = nodemailerModule.default || nodemailerModule;
+
       const transporter = nodemailer.createTransport({
         host,
         port,
@@ -64,26 +65,34 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
     }
   }
 
-  // 2. Fallback na lokální Mailpit (port 8026 nebo 1025)
-  try {
-    const mailRes = await fetch("http://localhost:8026/api/v1/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        From: { Email: fromEmail, Name: fromName },
-        To: [{ Email: to }],
-        Subject: subject,
-        Text: text,
-        HTML: html || text,
-      }),
-    });
+  // 2. Fallback na lokální Mailpit (port 8025 / 8026)
+  const mailpitEndpoints = [
+    "http://mailpit:8025/api/v1/send",
+    "http://localhost:8025/api/v1/send",
+    "http://localhost:8026/api/v1/send",
+  ];
 
-    if (mailRes.ok) {
-      const resJson = await mailRes.json().catch(() => ({}));
-      return { success: true, messageId: resJson.ID || "mailpit-sent" };
+  for (const endpoint of mailpitEndpoints) {
+    try {
+      const mailRes = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          From: { Email: fromEmail, Name: fromName },
+          To: [{ Email: to }],
+          Subject: subject,
+          Text: text,
+          HTML: html || text,
+        }),
+      });
+
+      if (mailRes.ok) {
+        const resJson = await mailRes.json().catch(() => ({}));
+        return { success: true, messageId: resJson.ID || "mailpit-sent" };
+      }
+    } catch {
+      // Zkusit další endpoint
     }
-  } catch {
-    // Mailpit není dostupný
   }
 
   // 3. Fallback log

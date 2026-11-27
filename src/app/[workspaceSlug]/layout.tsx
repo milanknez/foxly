@@ -136,6 +136,7 @@ export default async function WorkspaceLayout({
             id: workspace.id,
             name: workspace.name,
             slug: workspace.slug,
+            plugins: (Array.isArray(workspace.plugins) ? workspace.plugins : []) as string[],
             apps: visibleApps.map((a) => ({
               id: a.id,
               name: a.name,
